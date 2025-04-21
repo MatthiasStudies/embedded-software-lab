@@ -4,8 +4,9 @@
 #define SEQ_LEN 1023
 #define NUM_SEQUENCES 24
 #define SHIFT_REGISTER_LENGTH 10
+#define DETECTION_THRESHOLD 800
 
-const int registerSums[NUM_SEQUENCES][2] = {
+const int satelliteSequenceQualifier[NUM_SEQUENCES][2] = {
     {1,5},
     {2,6},
     {3,7},
@@ -31,6 +32,14 @@ const int registerSums[NUM_SEQUENCES][2] = {
     {0,2},
     {3,5},
 };
+
+void rotateOneLeft(int bits[], int bits_len) {
+    int first = bits[0];
+    for (int i = 0; i < bits_len - 1; i++) {
+        bits[i] = bits[i + 1];
+    }
+    bits[bits_len - 1] = first;
+}
 
 void rotateMotherSequence(bool bits[SHIFT_REGISTER_LENGTH], const bool nextValue) {
     for(int i = SHIFT_REGISTER_LENGTH-1; i > 0; i--) {
@@ -76,18 +85,60 @@ void generateChipSequences(bool chipSequences[NUM_SEQUENCES][SEQ_LEN], const int
     }
 }
 
-
-int main(void) {
-    bool chipSequences[NUM_SEQUENCES][SEQ_LEN];
-    generateChipSequences(chipSequences, registerSums);
-
-    for (int i = 0; i < NUM_SEQUENCES; i++) {
-        const bool* chipSequence = chipSequences[i];
-        const int* registers = registerSums[i];
-        printf("Reg %d %d:\t ", registers[0]+1, registers[1]+1);
-        for (int j = 0; j < SEQ_LEN; j++) {
-            printf("%d", chipSequence[j]);
-        }
-        printf("\n");
+void readFile(int sumSignal[SEQ_LEN], const char *filename) {
+    FILE *file = fopen(filename, "r");
+    if (file == NULL) {
+        perror("Error opening file");
+        return;
     }
+
+    for (int i = 0; i < SEQ_LEN; i++) {
+        if (fscanf(file, "%d", &sumSignal[i]) != 1) {
+            fprintf(stderr, "Error reading sequence from file\n");
+            fclose(file);
+            return;
+        }
+    }
+
+    fclose(file);
+}
+
+int scalarProduct(const int* a, const bool* b, const int length) {
+    int result = 0;
+    for (int i = 0; i < length; i++) {
+        int bValue = b[i] == 0 ? -1 : 1;
+        result += a[i] * bValue;
+    }
+
+    return result;
+}
+
+void findSatelliteBits(int sumSignal[SEQ_LEN], const bool chipSequences[NUM_SEQUENCES][SEQ_LEN]) {
+    for(int delta = 0; delta < SEQ_LEN; delta++) {
+        for(int satellite = 0; satellite < NUM_SEQUENCES; satellite++) {
+            const bool* chipSequence = chipSequences[satellite];
+            int scalar = scalarProduct(sumSignal, chipSequence, SEQ_LEN);
+            if (scalar > DETECTION_THRESHOLD) {
+                printf("Satellite %d has sent bit %d (delta = %d)\n", satellite, 1, delta);
+            } else if (scalar < -DETECTION_THRESHOLD) {
+                printf("Satellite %d has sent bit %d (delta = %d)\n", satellite, 0, delta);
+            }
+        }
+        rotateOneLeft(sumSignal, SEQ_LEN);
+    }
+}
+
+int main(int argc,char* argv[]) {
+    if (argc != 2) {
+        fprintf(stderr, "Usage: %s <filename>\n", argv[0]);
+        return 1;
+    }
+    int sumSignal[SEQ_LEN];
+    readFile(sumSignal, argv[1]);
+
+
+    bool chipSequences[NUM_SEQUENCES][SEQ_LEN];
+    generateChipSequences(chipSequences, satelliteSequenceQualifier);
+
+    findSatelliteBits(sumSignal, chipSequences);
 }
