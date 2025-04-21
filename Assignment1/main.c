@@ -119,9 +119,9 @@ void findSatelliteBits(int sumSignal[SEQ_LEN], const bool chipSequences[NUM_SEQU
             const bool* chipSequence = chipSequences[satellite];
             int scalar = scalarProduct(sumSignal, chipSequence, SEQ_LEN);
             if (scalar > DETECTION_THRESHOLD) {
-                printf("Satellite %d has sent bit %d (delta = %d)\n", satellite, 1, delta);
+                printf("Satellite %d has sent bit %d (delta = %d)\n", satellite + 1, 1, delta);
             } else if (scalar < -DETECTION_THRESHOLD) {
-                printf("Satellite %d has sent bit %d (delta = %d)\n", satellite, 0, delta);
+                printf("Satellite %d has sent bit %d (delta = %d)\n", satellite + 1, 0, delta);
             }
         }
         rotateOneLeft(sumSignal, SEQ_LEN);
